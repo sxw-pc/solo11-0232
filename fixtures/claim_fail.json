@@ -1,8 +1,29 @@
-{
-  "op": "bind",
-  "id": "missing",
-  "claim": "c1",
-  "reservation": "bad",
-  "workload": "other",
-  "node_region": "west"
-}
+[
+  {
+    "op": "declare",
+    "id": "c_bad",
+    "size": 20,
+    "mode": "single_writer",
+    "region": "east"
+  },
+  {
+    "op": "bind",
+    "id": "bad-binding",
+    "claim": "c_bad",
+    "reservation": "r1",
+    "workload": "other",
+    "node_region": "west"
+  },
+  {
+    "op": "grant",
+    "id": "bad-grant",
+    "binding": "bad-binding",
+    "workload": "other"
+  },
+  {
+    "op": "attach",
+    "id": "bad-attach",
+    "binding": "bad-binding",
+    "node_region": "west"
+  }
+]

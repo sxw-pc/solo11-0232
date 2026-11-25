@@ -14,8 +14,32 @@ def run(db,x):
             row=db.execute('SELECT * FROM bindings WHERE id=?',(x['id'],)).fetchone()
             if not row:return {'decision':'blocked','reason':'unknown_binding'}
             db.execute("UPDATE bindings SET state='released',token=token+1 WHERE id=?",(x['id'],))
+            db.execute("UPDATE writer_grants SET state='revoked',generation=generation+1 WHERE binding_id=? AND state='active'",(x['id'],))
+            db.execute("UPDATE attachments SET state='detached' WHERE binding_id=? AND state='attached'",(x['id'],))
             record(db,'claim',x['id'],'unbind',row['token']+1,x)
             return {'decision':'released'}
+        if x['op']=='grant':
+            binding=db.execute("SELECT * FROM bindings WHERE id=? AND state='bound'",(x['binding'],)).fetchone()
+            if not binding or binding['workload']!=x['workload']:return {'decision':'blocked','reason':'unbound_writer'}
+            claim=db.execute('SELECT mode FROM claims WHERE id=?',(binding['claim_id'],)).fetchone()
+            if claim['mode']!='single_writer':return {'decision':'blocked','reason':'grant_not_required'}
+            active=db.execute("SELECT * FROM writer_grants WHERE claim_id=? AND state='active'",(binding['claim_id'],)).fetchone()
+            if active:return {'decision':'reused' if active['workload']==x['workload'] else 'blocked','reason':'writer_occupied' if active['workload']!=x['workload'] else None}
+            db.execute('INSERT INTO writer_grants VALUES(?,?,?,?,?,?)',(x['id'],binding['claim_id'],x['binding'],x['workload'],'active',1))
+            record(db,'claim',x['id'],'grant',1,x)
+            return {'decision':'granted'}
+        if x['op']=='attach':
+            binding=db.execute("SELECT * FROM bindings WHERE id=? AND state='bound'",(x['binding'],)).fetchone()
+            if not binding or binding['node_region']!=x['node_region']:
+                return {'decision':'blocked','reason':'binding_topology'}
+            claim=db.execute('SELECT mode FROM claims WHERE id=?',(binding['claim_id'],)).fetchone()
+            if claim['mode']=='single_writer' and not db.execute("SELECT 1 FROM writer_grants WHERE binding_id=? AND state='active'",(x['binding'],)).fetchone():
+                return {'decision':'blocked','reason':'missing_writer_grant'}
+            old=db.execute('SELECT * FROM attachments WHERE id=?',(x['id'],)).fetchone()
+            if old:return {'decision':'reused' if old['binding_id']==x['binding'] and old['token']==binding['token'] else 'blocked','reason':'attachment_conflict' if old['binding_id']!=x['binding'] or old['token']!=binding['token'] else None}
+            db.execute('INSERT INTO attachments VALUES(?,?,?,?,?)',(x['id'],x['binding'],x['node_region'],binding['token'],'attached'))
+            record(db,'claim',x['id'],'attach',binding['token'],x)
+            return {'decision':'attached','token':binding['token']}
         claim=db.execute('SELECT * FROM claims WHERE id=?',(x['claim'],)).fetchone()
         reservation=db.execute('SELECT * FROM reservations WHERE id=?',(x['reservation'],)).fetchone()
         if not claim or not reservation or reservation['state']!='committed':return {'decision':'blocked','reason':'uncommitted_capacity'}

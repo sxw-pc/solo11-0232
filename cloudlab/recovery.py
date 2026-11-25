@@ -28,6 +28,17 @@ def run(db,x):
             db.execute('UPDATE snapshots SET valid=0 WHERE id=?',(x['id'],))
             record(db,'recovery',x['id'],'invalidate_snapshot',row['generation'],x)
             return {'decision':'invalidated'}
+        if x['op']=='fence':
+            primary=db.execute("SELECT * FROM replicas WHERE id=? AND claim_id=? AND state='primary'",(x['primary'],x['claim'])).fetchone()
+            if not primary:return {'decision':'blocked','reason':'no_active_primary'}
+            binding=db.execute("SELECT * FROM bindings WHERE claim_id=? AND state='bound'",(x['claim'],)).fetchone()
+            if not binding:return {'decision':'blocked','reason':'no_active_binding'}
+            db.execute("UPDATE replicas SET state='fenced' WHERE id=?",(x['primary'],))
+            db.execute('INSERT INTO fences VALUES(?,?,?,?,?)',(x['id'],x['claim'],x['primary'],primary['generation'],'active'))
+            db.execute("UPDATE writer_grants SET state='revoked',generation=generation+1 WHERE binding_id=? AND state='active'",(binding['id'],))
+            db.execute("UPDATE attachments SET state='fenced' WHERE binding_id=? AND state='attached'",(binding['id'],))
+            record(db,'recovery',x['id'],'fence',primary['generation'],x)
+            return {'decision':'fenced','primary':x['primary']}
         if x['op']=='snapshot':
             if not db.execute('SELECT 1 FROM claims WHERE id=?',(x['claim'],)).fetchone():
                 return {'decision':'blocked','reason':'unknown_claim'}
@@ -38,6 +49,14 @@ def run(db,x):
             db.execute('INSERT INTO snapshots VALUES(?,?,?,?,?)',(x['id'],x['claim'],x.get('parent'),x['generation'],int(x.get('valid',True))))
             record(db,'recovery',x['id'],'snapshot',x['generation'],x)
             return {'decision':'stored'}
+        if x['op']=='plan_restore':
+            candidate=db.execute('SELECT * FROM replicas WHERE id=? AND claim_id=?',(x['candidate'],x['claim'])).fetchone()
+            snapshot=db.execute('SELECT * FROM snapshots WHERE id=? AND claim_id=?',(x['snapshot'],x['claim'])).fetchone()
+            if not candidate or candidate['state']!='healthy' or not snapshot or not valid_chain(db,snapshot,x['claim']) or candidate['generation']<snapshot['generation']:
+                return {'decision':'blocked','reason':'restore_evidence_incomplete'}
+            db.execute('INSERT INTO restore_plans VALUES(?,?,?,?,?)',(x['id'],x['claim'],x['candidate'],x['snapshot'],'ready'))
+            record(db,'recovery',x['id'],'plan_restore',snapshot['generation'],x)
+            return {'decision':'restorable','snapshot':x['snapshot']}
         if x['op']=='promote':
             attempt=db.execute('SELECT * FROM recovery_attempts WHERE id=?',(x['id'],)).fetchone()
             if attempt:return {'decision':'reused' if attempt['candidate']==x['candidate'] else 'blocked','reason':'attempt_conflict' if attempt['candidate']!=x['candidate'] else None}
@@ -46,6 +65,9 @@ def run(db,x):
             binding=db.execute("SELECT * FROM bindings WHERE claim_id=? AND state='bound'",(x['claim'],)).fetchone()
             if not candidate or candidate['state']!='healthy' or not snapshot or not binding:return {'decision':'blocked','reason':'unrecoverable'}
             if not valid_chain(db,snapshot,x['claim']):return {'decision':'blocked','reason':'broken_chain'}
+            fence=db.execute("SELECT * FROM fences WHERE id=? AND claim_id=? AND state='active'",(x.get('fence'),x['claim'])).fetchone()
+            plan=db.execute("SELECT * FROM restore_plans WHERE id=? AND claim_id=? AND candidate=? AND snapshot_id=? AND state='ready'",(x.get('restore_plan'),x['claim'],x['candidate'],x['snapshot'])).fetchone()
+            if not fence or not plan:return {'decision':'blocked','reason':'missing_fence_or_restore_plan'}
             reservation=db.execute("SELECT * FROM reservations WHERE id=? AND state='committed'",(x.get('reservation'),)).fetchone()
             claim=db.execute('SELECT size FROM claims WHERE id=?',(x['claim'],)).fetchone()
             old_primary=db.execute("SELECT rack FROM replicas WHERE claim_id=? AND state='primary'",(x['claim'],)).fetchone()
@@ -56,8 +78,12 @@ def run(db,x):
             if candidate['generation']<snapshot['generation']:return {'decision':'blocked','reason':'stale_replica'}
             db.execute("UPDATE replicas SET state='fenced' WHERE claim_id=? AND state='primary'",(x['claim'],))
             db.execute("UPDATE replicas SET state='primary' WHERE id=?",(x['candidate'],))
+            db.execute("UPDATE fences SET state='consumed' WHERE id=?",(x['fence'],))
+            db.execute("UPDATE restore_plans SET state='consumed' WHERE id=?",(x['restore_plan'],))
             db.execute('INSERT INTO recovery_attempts VALUES(?,?,?,?,?)',(x['id'],x['claim'],x['candidate'],'promoted',candidate['generation']))
             db.execute('UPDATE bindings SET token=token+1,reservation_id=? WHERE id=?',(reservation['id'],binding['id']))
+            db.execute("UPDATE writer_grants SET state='revoked',generation=generation+1 WHERE binding_id=? AND state='active'",(binding['id'],))
+            db.execute("UPDATE attachments SET state='fenced' WHERE binding_id=? AND state='attached'",(binding['id'],))
             record(db,'recovery',x['id'],'promote',candidate['generation'],x)
             return {'decision':'promoted','candidate':x['candidate'],'binding_token':binding['token']+1}
         raise ValueError(x['op'])

@@ -20,5 +20,17 @@
     "reservation": "r1",
     "workload": "web",
     "node_region": "east"
+  },
+  {
+    "op": "grant",
+    "id": "g1",
+    "binding": "b1",
+    "workload": "web"
+  },
+  {
+    "op": "attach",
+    "id": "a1",
+    "binding": "b1",
+    "node_region": "east"
   }
 ]
