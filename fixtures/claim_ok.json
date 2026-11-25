@@ -1,0 +1,17 @@
+[
+  {
+    "op": "declare",
+    "id": "c1",
+    "size": 20,
+    "mode": "single_writer",
+    "region": "east"
+  },
+  {
+    "op": "bind",
+    "id": "b1",
+    "claim": "c1",
+    "reservation": "r1",
+    "workload": "web",
+    "node_region": "east"
+  }
+]

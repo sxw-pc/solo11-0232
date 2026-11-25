@@ -1,0 +1,8 @@
+{
+  "op": "reserve",
+  "pool": "missing",
+  "id": "x",
+  "amount": 1,
+  "rack": "r1",
+  "expires": 100
+}

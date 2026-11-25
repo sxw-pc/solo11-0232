@@ -1,0 +1,7 @@
+{
+  "op": "snapshot",
+  "id": "broken",
+  "claim": "c1",
+  "parent": "absent",
+  "generation": 2
+}

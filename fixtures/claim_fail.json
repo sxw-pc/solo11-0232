@@ -1,0 +1,8 @@
+{
+  "op": "bind",
+  "id": "missing",
+  "claim": "c1",
+  "reservation": "bad",
+  "workload": "other",
+  "node_region": "west"
+}

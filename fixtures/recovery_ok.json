@@ -1,0 +1,25 @@
+[
+  {
+    "op": "replica",
+    "id": "rep1",
+    "claim": "c1",
+    "rack": "r2",
+    "generation": 2,
+    "state": "healthy"
+  },
+  {
+    "op": "snapshot",
+    "id": "snap1",
+    "claim": "c1",
+    "generation": 1,
+    "valid": true
+  },
+  {
+    "op": "promote",
+    "id": "attempt1",
+    "claim": "c1",
+    "candidate": "rep1",
+    "snapshot": "snap1",
+    "reservation": "r2"
+  }
+]
