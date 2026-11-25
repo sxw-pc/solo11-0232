@@ -24,7 +24,9 @@ def run(db,x):
             binding=db.execute("SELECT * FROM bindings WHERE claim_id=? AND state='bound'",(x['claim'],)).fetchone()
             if not candidate or candidate['state']!='healthy' or not snapshot or not binding:return {'decision':'blocked','reason':'unrecoverable'}
             reservation=db.execute("SELECT * FROM reservations WHERE id=? AND state='committed'",(x.get('reservation'),)).fetchone()
-            if not reservation or reservation['rack']!=candidate['rack']:
+            claim=db.execute('SELECT size FROM claims WHERE id=?',(x['claim'],)).fetchone()
+            old_primary=db.execute("SELECT rack FROM replicas WHERE claim_id=? AND state='primary'",(x['claim'],)).fetchone()
+            if not reservation or reservation['rack']!=candidate['rack'] or not claim or reservation['amount']<claim['size'] or (old_primary and old_primary['rack']==candidate['rack']):
                 return {'decision':'blocked','reason':'unreserved_recovery_domain'}
             if candidate['generation']<snapshot['generation']:return {'decision':'blocked','reason':'stale_replica'}
             db.execute("UPDATE replicas SET state='fenced' WHERE claim_id=? AND state='primary'",(x['claim'],))
