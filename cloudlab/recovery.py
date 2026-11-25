@@ -1,5 +1,17 @@
 from .store import transaction,record,audit_run
 
+def valid_chain(db, snapshot, claim_id):
+    seen=set(); expected=snapshot['generation']
+    current=snapshot
+    while current:
+        if current['id'] in seen or not current['valid'] or current['claim_id']!=claim_id or current['generation']!=expected:
+            return False
+        seen.add(current['id'])
+        if not current['parent']:return True
+        expected-=1
+        current=db.execute('SELECT * FROM snapshots WHERE id=?',(current['parent'],)).fetchone()
+    return False
+
 @audit_run('recovery')
 def run(db,x):
     with transaction(db):
@@ -10,9 +22,19 @@ def run(db,x):
                        (x['id'],x['claim'],x['rack'],x['generation'],x['state']))
             record(db,'recovery',x['id'],'replica',x['generation'],x)
             return {'decision':'observed'}
+        if x['op']=='invalidate_snapshot':
+            row=db.execute('SELECT * FROM snapshots WHERE id=?',(x['id'],)).fetchone()
+            if not row:return {'decision':'blocked','reason':'unknown_snapshot'}
+            db.execute('UPDATE snapshots SET valid=0 WHERE id=?',(x['id'],))
+            record(db,'recovery',x['id'],'invalidate_snapshot',row['generation'],x)
+            return {'decision':'invalidated'}
         if x['op']=='snapshot':
-            if x.get('parent') and not db.execute('SELECT 1 FROM snapshots WHERE id=? AND valid=1',(x['parent'],)).fetchone():
-                return {'decision':'blocked','reason':'broken_chain'}
+            if not db.execute('SELECT 1 FROM claims WHERE id=?',(x['claim'],)).fetchone():
+                return {'decision':'blocked','reason':'unknown_claim'}
+            if x.get('parent'):
+                parent=db.execute('SELECT * FROM snapshots WHERE id=? AND valid=1',(x['parent'],)).fetchone()
+                if not parent or not valid_chain(db,parent,x['claim']) or x['generation']!=parent['generation']+1:
+                    return {'decision':'blocked','reason':'broken_chain'}
             db.execute('INSERT INTO snapshots VALUES(?,?,?,?,?)',(x['id'],x['claim'],x.get('parent'),x['generation'],int(x.get('valid',True))))
             record(db,'recovery',x['id'],'snapshot',x['generation'],x)
             return {'decision':'stored'}
@@ -23,6 +45,7 @@ def run(db,x):
             snapshot=db.execute('SELECT * FROM snapshots WHERE id=? AND claim_id=? AND valid=1',(x['snapshot'],x['claim'])).fetchone()
             binding=db.execute("SELECT * FROM bindings WHERE claim_id=? AND state='bound'",(x['claim'],)).fetchone()
             if not candidate or candidate['state']!='healthy' or not snapshot or not binding:return {'decision':'blocked','reason':'unrecoverable'}
+            if not valid_chain(db,snapshot,x['claim']):return {'decision':'blocked','reason':'broken_chain'}
             reservation=db.execute("SELECT * FROM reservations WHERE id=? AND state='committed'",(x.get('reservation'),)).fetchone()
             claim=db.execute('SELECT size FROM claims WHERE id=?',(x['claim'],)).fetchone()
             old_primary=db.execute("SELECT rack FROM replicas WHERE claim_id=? AND state='primary'",(x['claim'],)).fetchone()

@@ -1,3 +1,4 @@
+import json
 from .store import transaction,record,audit_run
 
 @audit_run('claim')
@@ -18,7 +19,9 @@ def run(db,x):
         claim=db.execute('SELECT * FROM claims WHERE id=?',(x['claim'],)).fetchone()
         reservation=db.execute('SELECT * FROM reservations WHERE id=?',(x['reservation'],)).fetchone()
         if not claim or not reservation or reservation['state']!='committed':return {'decision':'blocked','reason':'uncommitted_capacity'}
-        if claim['region']!=x['node_region'] or reservation['amount']<claim['size']:
+        pool=db.execute('SELECT rack_regions FROM pools WHERE id=?',(reservation['pool_id'],)).fetchone()
+        coverage=json.loads(pool['rack_regions']).get(reservation['rack']) if pool else None
+        if claim['region']!=x['node_region'] or coverage!=x['node_region'] or reservation['amount']<claim['size']:
             return {'decision':'blocked','reason':'topology_or_size'}
         occupied=db.execute("SELECT claim_id FROM bindings WHERE reservation_id=? AND state IN ('bound','risk')",(x['reservation'],)).fetchone()
         if occupied and occupied['claim_id']!=x['claim']:return {'decision':'blocked','reason':'reservation_in_use'}

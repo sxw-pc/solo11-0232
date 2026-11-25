@@ -1,3 +1,4 @@
+import json
 from .store import transaction,record,audit_run
 
 @audit_run('pool')
@@ -9,8 +10,10 @@ def run(db, x):
             version=(old['version']+1) if old else 1
             used=db.execute("SELECT COALESCE(SUM(amount),0) FROM reservations WHERE pool_id=? AND state IN ('reserved','committed','risk')",(pid,)).fetchone()[0]
             status='overcommitted' if used>x['capacity'] else x.get('status','healthy')
-            db.execute('INSERT INTO pools VALUES(?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET capacity=excluded.capacity,version=excluded.version,racks=excluded.racks,status=excluded.status',
-                       (pid,x['capacity'],version,','.join(x['racks']),status))
+            regions=x.get('rack_regions',{rack:'east' for rack in x['racks']})
+            if set(regions)!=set(x['racks']):return {'decision':'blocked','reason':'incomplete_rack_regions'}
+            db.execute('INSERT INTO pools VALUES(?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET capacity=excluded.capacity,version=excluded.version,racks=excluded.racks,rack_regions=excluded.rack_regions,status=excluded.status',
+                       (pid,x['capacity'],version,','.join(x['racks']),json.dumps(regions,sort_keys=True),status))
             if status!='healthy':
                 db.execute("UPDATE reservations SET state='risk',version=version+1 WHERE pool_id=? AND state='committed'",(pid,))
                 db.execute("UPDATE bindings SET state='risk' WHERE reservation_id IN (SELECT id FROM reservations WHERE pool_id=? AND state='risk')",(pid,))

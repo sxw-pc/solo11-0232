@@ -74,6 +74,17 @@ class Workflows(unittest.TestCase):
         recovery.run(self.db,dict(op='replica',id='rep',claim='c',rack='b',generation=2,state='healthy'))
         self.assertEqual(recovery.run(self.db,dict(op='replica',id='rep',claim='c',rack='b',generation=1,state='primary'))['reason'],'stale_generation')
         self.assertEqual(recovery.run(self.db,dict(op='snapshot',id='child',claim='c',parent='missing',generation=2))['reason'],'broken_chain')
+    def test_snapshot_chain_rejects_cross_claim_skip_and_lost_ancestor(self):
+        self.base()
+        claim.run(self.db,dict(op='declare',id='c2',size=10,mode='single_writer',region='east'))
+        recovery.run(self.db,dict(op='snapshot',id='root',claim='c',generation=1,valid=True))
+        self.assertEqual(recovery.run(self.db,dict(op='snapshot',id='cross',claim='c2',parent='root',generation=2,valid=True))['reason'],'broken_chain')
+        self.assertEqual(recovery.run(self.db,dict(op='snapshot',id='skip',claim='c',parent='root',generation=3,valid=True))['reason'],'broken_chain')
+        recovery.run(self.db,dict(op='snapshot',id='child',claim='c',parent='root',generation=2,valid=True))
+        recovery.run(self.db,dict(op='replica',id='new',claim='c',rack='b',generation=3,state='healthy'))
+        recovery.run(self.db,dict(op='invalidate_snapshot',id='root'))
+        self.assertEqual(recovery.run(self.db,dict(op='snapshot',id='grandchild',claim='c',parent='child',generation=3,valid=True))['reason'],'broken_chain')
+        self.assertEqual(recovery.run(self.db,dict(op='promote',id='a',claim='c',candidate='new',snapshot='child',reservation='r2'))['reason'],'broken_chain')
 
 assert Path(cloudlab.__file__).resolve().is_relative_to(Path(__file__).resolve().parents[1])
 print('imported_module_file=',cloudlab.__file__)

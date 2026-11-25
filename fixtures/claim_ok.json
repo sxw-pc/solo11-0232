@@ -7,6 +7,13 @@
     "region": "east"
   },
   {
+    "op": "declare",
+    "id": "c2",
+    "size": 10,
+    "mode": "single_writer",
+    "region": "east"
+  },
+  {
     "op": "bind",
     "id": "b1",
     "claim": "c1",
