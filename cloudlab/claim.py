@@ -5,7 +5,7 @@ def run(db,x):
     with transaction(db):
         if x['op']=='declare':
             old=db.execute('SELECT * FROM claims WHERE id=?',(x['id'],)).fetchone()
-            if old:return {'decision':'reused' if old['size']==x['size'] and old['mode']==x['mode'] else 'blocked','reason':'spec_conflict' if old['size']!=x['size'] or old['mode']!=x['mode'] else None}
+            if old:return {'decision':'reused' if old['size']==x['size'] and old['mode']==x['mode'] and old['region']==x['region'] else 'blocked','reason':'spec_conflict' if old['size']!=x['size'] or old['mode']!=x['mode'] or old['region']!=x['region'] else None}
             db.execute('INSERT INTO claims VALUES(?,?,?,?,?)',(x['id'],x['size'],x['mode'],x['region'],1))
             record(db,'claim',x['id'],'declare',1,x)
             return {'decision':'declared'}
@@ -20,6 +20,8 @@ def run(db,x):
         if not claim or not reservation or reservation['state']!='committed':return {'decision':'blocked','reason':'uncommitted_capacity'}
         if claim['region']!=x['node_region'] or reservation['amount']<claim['size']:
             return {'decision':'blocked','reason':'topology_or_size'}
+        occupied=db.execute("SELECT claim_id FROM bindings WHERE reservation_id=? AND state IN ('bound','risk')",(x['reservation'],)).fetchone()
+        if occupied and occupied['claim_id']!=x['claim']:return {'decision':'blocked','reason':'reservation_in_use'}
         old=db.execute("SELECT * FROM bindings WHERE claim_id=? AND state='bound'",(x['claim'],)).fetchone()
         if old and claim['mode']=='single_writer' and old['workload']!=x['workload']:
             return {'decision':'blocked','reason':'writer_conflict'}

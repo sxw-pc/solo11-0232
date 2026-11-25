@@ -28,6 +28,8 @@ def run(db,x):
             old_primary=db.execute("SELECT rack FROM replicas WHERE claim_id=? AND state='primary'",(x['claim'],)).fetchone()
             if not reservation or reservation['rack']!=candidate['rack'] or not claim or reservation['amount']<claim['size'] or (old_primary and old_primary['rack']==candidate['rack']):
                 return {'decision':'blocked','reason':'unreserved_recovery_domain'}
+            other=db.execute("SELECT claim_id FROM bindings WHERE reservation_id=? AND state IN ('bound','risk') AND claim_id!=?",(reservation['id'],x['claim'])).fetchone()
+            if other:return {'decision':'blocked','reason':'recovery_capacity_in_use'}
             if candidate['generation']<snapshot['generation']:return {'decision':'blocked','reason':'stale_replica'}
             db.execute("UPDATE replicas SET state='fenced' WHERE claim_id=? AND state='primary'",(x['claim'],))
             db.execute("UPDATE replicas SET state='primary' WHERE id=?",(x['candidate'],))

@@ -57,6 +57,9 @@ class Workflows(unittest.TestCase):
     def test_claim_identity_and_release(self):
         self.base()
         self.assertEqual(claim.run(self.db,dict(op='declare',id='c',size=25,mode='single_writer',region='east'))['reason'],'spec_conflict')
+        self.assertEqual(claim.run(self.db,dict(op='declare',id='c',size=20,mode='single_writer',region='west'))['reason'],'spec_conflict')
+        claim.run(self.db,dict(op='declare',id='other',size=10,mode='single_writer',region='east'))
+        self.assertEqual(claim.run(self.db,dict(op='bind',id='taken',claim='other',reservation='r',workload='other',node_region='east'))['reason'],'reservation_in_use')
         self.assertEqual(claim.run(self.db,dict(op='unbind',id='b'))['decision'],'released')
         self.assertEqual(claim.run(self.db,dict(op='bind',id='b2',claim='c',reservation='r',workload='other',node_region='east'))['decision'],'bound')
     def test_recovery_requires_committed_capacity_in_candidate_domain(self):

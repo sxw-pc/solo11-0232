@@ -11,11 +11,11 @@ def run(db, x):
             status='overcommitted' if used>x['capacity'] else x.get('status','healthy')
             db.execute('INSERT INTO pools VALUES(?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET capacity=excluded.capacity,version=excluded.version,racks=excluded.racks,status=excluded.status',
                        (pid,x['capacity'],version,','.join(x['racks']),status))
-            if status=='overcommitted':
+            if status!='healthy':
                 db.execute("UPDATE reservations SET state='risk',version=version+1 WHERE pool_id=? AND state='committed'",(pid,))
                 db.execute("UPDATE bindings SET state='risk' WHERE reservation_id IN (SELECT id FROM reservations WHERE pool_id=? AND state='risk')",(pid,))
             record(db,'pool',pid,'define',version,x)
-            return {'decision':'risk' if status=='overcommitted' else 'defined','version':version,'committed':used}
+            return {'decision':'risk' if status!='healthy' else 'defined','version':version,'committed':used}
         pool=db.execute('SELECT * FROM pools WHERE id=?',(pid,)).fetchone()
         if not pool:return {'decision':'blocked','reason':'unknown_pool'}
         if op=='expire':
