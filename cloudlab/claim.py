@@ -47,8 +47,8 @@ def run(db,x):
         coverage=json.loads(pool['rack_regions']).get(reservation['rack']) if pool else None
         if claim['region']!=x['node_region'] or coverage!=x['node_region'] or reservation['amount']<claim['size']:
             return {'decision':'blocked','reason':'topology_or_size'}
-        occupied=db.execute("SELECT claim_id FROM bindings WHERE reservation_id=? AND state IN ('bound','risk')",(x['reservation'],)).fetchone()
-        if occupied and occupied['claim_id']!=x['claim']:return {'decision':'blocked','reason':'reservation_in_use'}
+        occupied=db.execute("SELECT claim_id,workload FROM bindings WHERE reservation_id=? AND state IN ('bound','risk')",(x['reservation'],)).fetchone()
+        if occupied:return {'decision':'blocked','reason':'writer_conflict' if occupied['claim_id']==x['claim'] and occupied['workload']!=x['workload'] else 'reservation_in_use'}
         old=db.execute("SELECT * FROM bindings WHERE claim_id=? AND state='bound'",(x['claim'],)).fetchone()
         if old and claim['mode']=='single_writer' and old['workload']!=x['workload']:
             return {'decision':'blocked','reason':'writer_conflict'}

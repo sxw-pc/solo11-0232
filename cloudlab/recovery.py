@@ -1,3 +1,4 @@
+import json
 from .store import transaction,record,audit_run
 
 def valid_chain(db, snapshot, claim_id):
@@ -16,7 +17,8 @@ def valid_chain(db, snapshot, claim_id):
 def run(db,x):
     with transaction(db):
         if x['op']=='replica':
-            old=db.execute('SELECT generation FROM replicas WHERE id=?',(x['id'],)).fetchone()
+            old=db.execute('SELECT * FROM replicas WHERE id=?',(x['id'],)).fetchone()
+            if old and (old['claim_id']!=x['claim'] or old['rack']!=x['rack']):return {'decision':'blocked','reason':'replica_identity_conflict'}
             if old and x['generation']<=old['generation']:return {'decision':'blocked','reason':'stale_generation'}
             db.execute('INSERT INTO replicas VALUES(?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET generation=excluded.generation,state=excluded.state',
                        (x['id'],x['claim'],x['rack'],x['generation'],x['state']))
@@ -68,15 +70,20 @@ def run(db,x):
             fence=db.execute("SELECT * FROM fences WHERE id=? AND claim_id=? AND state='active'",(x.get('fence'),x['claim'])).fetchone()
             plan=db.execute("SELECT * FROM restore_plans WHERE id=? AND claim_id=? AND candidate=? AND snapshot_id=? AND state='ready'",(x.get('restore_plan'),x['claim'],x['candidate'],x['snapshot'])).fetchone()
             if not fence or not plan:return {'decision':'blocked','reason':'missing_fence_or_restore_plan'}
+            latest_fence=db.execute('SELECT MAX(generation) FROM fences WHERE claim_id=?',(x['claim'],)).fetchone()[0]
+            if fence['generation']!=latest_fence:return {'decision':'blocked','reason':'stale_fence'}
             reservation=db.execute("SELECT * FROM reservations WHERE id=? AND state='committed'",(x.get('reservation'),)).fetchone()
-            claim=db.execute('SELECT size FROM claims WHERE id=?',(x['claim'],)).fetchone()
+            claim=db.execute('SELECT size,region FROM claims WHERE id=?',(x['claim'],)).fetchone()
             old_primary=db.execute("SELECT rack FROM replicas WHERE claim_id=? AND state='primary'",(x['claim'],)).fetchone()
             if not reservation or reservation['rack']!=candidate['rack'] or not claim or reservation['amount']<claim['size'] or (old_primary and old_primary['rack']==candidate['rack']):
                 return {'decision':'blocked','reason':'unreserved_recovery_domain'}
+            pool=db.execute('SELECT rack_regions FROM pools WHERE id=?',(reservation['pool_id'],)).fetchone()
+            if not pool or json.loads(pool['rack_regions']).get(reservation['rack'])!=claim['region']:
+                return {'decision':'blocked','reason':'recovery_topology_mismatch'}
+            if old_primary:return {'decision':'blocked','reason':'active_primary_after_fence'}
             other=db.execute("SELECT claim_id FROM bindings WHERE reservation_id=? AND state IN ('bound','risk') AND claim_id!=?",(reservation['id'],x['claim'])).fetchone()
             if other:return {'decision':'blocked','reason':'recovery_capacity_in_use'}
             if candidate['generation']<snapshot['generation']:return {'decision':'blocked','reason':'stale_replica'}
-            db.execute("UPDATE replicas SET state='fenced' WHERE claim_id=? AND state='primary'",(x['claim'],))
             db.execute("UPDATE replicas SET state='primary' WHERE id=?",(x['candidate'],))
             db.execute("UPDATE fences SET state='consumed' WHERE id=?",(x['fence'],))
             db.execute("UPDATE restore_plans SET state='consumed' WHERE id=?",(x['restore_plan'],))
