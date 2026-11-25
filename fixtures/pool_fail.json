@@ -1,0 +1,39 @@
+[
+  {
+    "op": "define",
+    "pool": "pbad",
+    "capacity": 30,
+    "racks": [
+      "r1",
+      "r2"
+    ]
+  },
+  {
+    "op": "place",
+    "pool": "pbad",
+    "id": "overfull",
+    "replica_size": 20,
+    "racks": [
+      "r1",
+      "r2"
+    ]
+  },
+  {
+    "op": "place",
+    "pool": "pbad",
+    "id": "same-rack",
+    "replica_size": 10,
+    "racks": [
+      "r1",
+      "r1"
+    ]
+  },
+  {
+    "op": "reserve",
+    "pool": "pbad",
+    "id": "too-large",
+    "amount": 40,
+    "rack": "r1",
+    "expires": 100
+  }
+]

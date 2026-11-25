@@ -1,0 +1,36 @@
+[
+  {
+    "op": "declare",
+    "id": "c1",
+    "size": 20,
+    "mode": "single_writer",
+    "region": "east"
+  },
+  {
+    "op": "declare",
+    "id": "c2",
+    "size": 10,
+    "mode": "single_writer",
+    "region": "east"
+  },
+  {
+    "op": "bind",
+    "id": "b1",
+    "claim": "c1",
+    "reservation": "r1",
+    "workload": "web",
+    "node_region": "east"
+  },
+  {
+    "op": "grant",
+    "id": "g1",
+    "binding": "b1",
+    "workload": "web"
+  },
+  {
+    "op": "attach",
+    "id": "a1",
+    "binding": "b1",
+    "node_region": "east"
+  }
+]

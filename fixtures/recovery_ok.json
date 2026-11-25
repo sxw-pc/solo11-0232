@@ -1,0 +1,48 @@
+[
+  {
+    "op": "replica",
+    "id": "old1",
+    "claim": "c1",
+    "rack": "r1",
+    "generation": 1,
+    "state": "primary"
+  },
+  {
+    "op": "replica",
+    "id": "rep1",
+    "claim": "c1",
+    "rack": "r2",
+    "generation": 2,
+    "state": "healthy"
+  },
+  {
+    "op": "snapshot",
+    "id": "snap1",
+    "claim": "c1",
+    "generation": 1,
+    "valid": true
+  },
+  {
+    "op": "fence",
+    "id": "f1",
+    "claim": "c1",
+    "primary": "old1"
+  },
+  {
+    "op": "plan_restore",
+    "id": "restore1",
+    "claim": "c1",
+    "candidate": "rep1",
+    "snapshot": "snap1"
+  },
+  {
+    "op": "promote",
+    "id": "attempt1",
+    "claim": "c1",
+    "candidate": "rep1",
+    "snapshot": "snap1",
+    "reservation": "r2",
+    "fence": "f1",
+    "restore_plan": "restore1"
+  }
+]

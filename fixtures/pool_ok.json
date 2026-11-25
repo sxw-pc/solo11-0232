@@ -1,0 +1,53 @@
+[
+  {
+    "op": "define",
+    "pool": "p1",
+    "capacity": 100,
+    "racks": [
+      "r1",
+      "r2"
+    ]
+  },
+  {
+    "op": "place",
+    "pool": "p1",
+    "id": "plan1",
+    "replica_size": 30,
+    "racks": [
+      "r1",
+      "r2"
+    ]
+  },
+  {
+    "op": "reserve",
+    "pool": "p1",
+    "id": "r1",
+    "amount": 30,
+    "rack": "r1",
+    "expires": 100,
+    "independent": true,
+    "plan_id": "plan1"
+  },
+  {
+    "op": "commit",
+    "pool": "p1",
+    "id": "r1",
+    "now": 10
+  },
+  {
+    "op": "reserve",
+    "pool": "p1",
+    "id": "r2",
+    "amount": 30,
+    "rack": "r2",
+    "expires": 100,
+    "independent": true,
+    "plan_id": "plan1"
+  },
+  {
+    "op": "commit",
+    "pool": "p1",
+    "id": "r2",
+    "now": 10
+  }
+]

@@ -1,0 +1,45 @@
+[
+  {
+    "op": "snapshot",
+    "id": "root_fail",
+    "claim": "c1",
+    "generation": 1,
+    "valid": true
+  },
+  {
+    "op": "snapshot",
+    "id": "child_fail",
+    "claim": "c1",
+    "parent": "root_fail",
+    "generation": 2,
+    "valid": true
+  },
+  {
+    "op": "snapshot",
+    "id": "cross_claim",
+    "claim": "c2",
+    "parent": "root_fail",
+    "generation": 2,
+    "valid": true
+  },
+  {
+    "op": "snapshot",
+    "id": "skip_generation",
+    "claim": "c1",
+    "parent": "root_fail",
+    "generation": 3,
+    "valid": true
+  },
+  {
+    "op": "invalidate_snapshot",
+    "id": "root_fail"
+  },
+  {
+    "op": "snapshot",
+    "id": "missing_ancestor",
+    "claim": "c1",
+    "parent": "child_fail",
+    "generation": 3,
+    "valid": true
+  }
+]
