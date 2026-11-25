@@ -75,5 +75,6 @@ class Workflows(unittest.TestCase):
         self.assertEqual(recovery.run(self.db,dict(op='replica',id='rep',claim='c',rack='b',generation=1,state='primary'))['reason'],'stale_generation')
         self.assertEqual(recovery.run(self.db,dict(op='snapshot',id='child',claim='c',parent='missing',generation=2))['reason'],'broken_chain')
 
+assert Path(cloudlab.__file__).resolve().is_relative_to(Path(__file__).resolve().parents[1])
 print('imported_module_file=',cloudlab.__file__)
 if __name__=='__main__':unittest.main()
