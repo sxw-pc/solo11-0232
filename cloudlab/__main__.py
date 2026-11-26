@@ -5,10 +5,11 @@ from .store import connect,report,replay
 from . import pool
 from . import claim
 from . import recovery
+from . import usage_billing
 
 def main():
     parser=argparse.ArgumentParser()
-    parser.add_argument('command',choices=["pool","claim","recovery","demo","report","replay"])
+    parser.add_argument('command',choices=["pool","claim","recovery","usage_billing","demo","report","replay"])
     parser.add_argument('--db',default='demo.sqlite')
     parser.add_argument('--fixture')
     args=parser.parse_args()
@@ -19,7 +20,7 @@ def main():
         result=report(db)
     elif args.command=='replay':
         db.close()
-        result=replay(args.db,{name:globals()[name] for name in ["pool","claim","recovery"]})
+        result=replay(args.db,{"pool":pool,"claim":claim,"recovery":recovery,"billing":usage_billing})
     elif args.command=='demo':
         result=[]
         for name in ["pool","claim","recovery"]:
