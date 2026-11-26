@@ -1,0 +1,57 @@
+[
+  {
+    "op": "observe",
+    "id": "page-controller-n1",
+    "evidence_version": "inv-0",
+    "pool": "p1",
+    "rack": "r1",
+    "controller": "N1",
+    "backplane": "BP-1",
+    "capacity": 8,
+    "observed_at": 1,
+    "note": "nameplate not yet verified"
+  },
+  {
+    "op": "observe",
+    "id": "page-controller-n2",
+    "evidence_version": "inv-0",
+    "pool": "p1",
+    "rack": "r2",
+    "controller": "N2",
+    "backplane": "BP-2",
+    "capacity": 8,
+    "observed_at": 1,
+    "note": "nameplate not yet verified"
+  },
+  {
+    "op": "observe",
+    "id": "page-nameplate-n1",
+    "evidence_version": "inv-1",
+    "pool": "p1",
+    "rack": "r1",
+    "controller": "N1",
+    "cabinet": "CAB-A",
+    "serial": "SN-1",
+    "capacity": 8,
+    "verified": true,
+    "observed_at": 2
+  },
+  {
+    "op": "observe",
+    "id": "page-nameplate-n2",
+    "evidence_version": "inv-1",
+    "pool": "p1",
+    "rack": "r2",
+    "controller": "N2",
+    "cabinet": "CAB-B",
+    "serial": "SN-2",
+    "capacity": 8,
+    "verified": true,
+    "observed_at": 2
+  },
+  {
+    "op": "reconcile",
+    "id": "reconcile-1",
+    "require_evidence": true
+  }
+]

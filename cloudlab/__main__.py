@@ -5,10 +5,13 @@ from .store import connect,report,replay
 from . import pool
 from . import claim
 from . import recovery
+from . import rack_evidence
+
+MODULES = {'pool': pool, 'claim': claim, 'recovery': recovery, 'rack_evidence': rack_evidence}
 
 def main():
     parser=argparse.ArgumentParser()
-    parser.add_argument('command',choices=["pool","claim","recovery","demo","report","replay"])
+    parser.add_argument('command',choices=["pool","claim","recovery","rack_evidence","demo","report","replay"])
     parser.add_argument('--db',default='demo.sqlite')
     parser.add_argument('--fixture')
     args=parser.parse_args()
@@ -19,10 +22,10 @@ def main():
         result=report(db)
     elif args.command=='replay':
         db.close()
-        result=replay(args.db,{name:globals()[name] for name in ["pool","claim","recovery"]})
+        result=replay(args.db,MODULES)
     elif args.command=='demo':
         result=[]
-        for name in ["pool","claim","recovery"]:
+        for name in ["rack_evidence","pool","claim","recovery"]:
             for file in sorted(Path('fixtures').glob(name+'_*.json')):
                 payload=json.loads(file.read_text(encoding='utf-8'))
                 result.append({'fixture':str(file),'result':invoke(globals()[name],payload)})

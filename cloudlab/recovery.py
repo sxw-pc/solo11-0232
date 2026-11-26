@@ -1,4 +1,5 @@
 import json
+from . import rack_evidence
 from .store import transaction,record,audit_run
 
 def valid_chain(db, snapshot, claim_id):
@@ -80,6 +81,10 @@ def run(db,x):
             pool=db.execute('SELECT rack_regions FROM pools WHERE id=?',(reservation['pool_id'],)).fetchone()
             if not pool or json.loads(pool['rack_regions']).get(reservation['rack'])!=claim['region']:
                 return {'decision':'blocked','reason':'recovery_topology_mismatch'}
+            if not rack_evidence.recovery_credential_ok(db,reservation['id'],candidate['rack']):
+                return {'decision':'blocked','reason':'recovery_credential_mismatch'}
+            if not rack_evidence.recovery_domain_ok(db,x['claim'],candidate['id'],candidate['rack']):
+                return {'decision':'blocked','reason':'same_failure_domain'}
             if old_primary:return {'decision':'blocked','reason':'active_primary_after_fence'}
             other=db.execute("SELECT claim_id FROM bindings WHERE reservation_id=? AND state IN ('bound','risk') AND claim_id!=?",(reservation['id'],x['claim'])).fetchone()
             if other:return {'decision':'blocked','reason':'recovery_capacity_in_use'}
@@ -89,6 +94,7 @@ def run(db,x):
             db.execute("UPDATE restore_plans SET state='consumed' WHERE id=?",(x['restore_plan'],))
             db.execute('INSERT INTO recovery_attempts VALUES(?,?,?,?,?)',(x['id'],x['claim'],x['candidate'],'promoted',candidate['generation']))
             db.execute('UPDATE bindings SET token=token+1,reservation_id=? WHERE id=?',(reservation['id'],binding['id']))
+            rack_evidence.record_credential(db,'binding',binding['id'],reservation['pool_id'],reservation['rack'])
             db.execute("UPDATE writer_grants SET state='revoked',generation=generation+1 WHERE binding_id=? AND state='active'",(binding['id'],))
             db.execute("UPDATE attachments SET state='fenced' WHERE binding_id=? AND state='attached'",(binding['id'],))
             record(db,'recovery',x['id'],'promote',candidate['generation'],x)

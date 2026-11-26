@@ -1,0 +1,32 @@
+[
+  {
+    "op": "observe",
+    "id": "page-missing-rack",
+    "evidence_version": "bad-1",
+    "pool": "p1",
+    "controller": "N1",
+    "capacity": 8,
+    "observed_at": 1
+  },
+  {
+    "op": "observe",
+    "id": "page-negative-bytes",
+    "evidence_version": "bad-2",
+    "pool": "p1",
+    "rack": "r1",
+    "controller": "N1",
+    "capacity": -4,
+    "observed_at": 1
+  },
+  {
+    "op": "observe",
+    "id": "page-empty",
+    "pages": [],
+    "evidence_version": "bad-3"
+  },
+  {
+    "op": "reconcile",
+    "id": "reconcile-without-evidence",
+    "require_evidence": true
+  }
+]

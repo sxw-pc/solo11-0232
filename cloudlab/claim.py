@@ -1,4 +1,5 @@
 import json
+from . import rack_evidence
 from .store import transaction,record,audit_run
 
 @audit_run('claim')
@@ -43,6 +44,11 @@ def run(db,x):
         claim=db.execute('SELECT * FROM claims WHERE id=?',(x['claim'],)).fetchone()
         reservation=db.execute('SELECT * FROM reservations WHERE id=?',(x['reservation'],)).fetchone()
         if not claim or not reservation or reservation['state']!='committed':return {'decision':'blocked','reason':'uncommitted_capacity'}
+        # The binding must ride the same frozen credential the reservation was
+        # accepted under; newer inventory pages cannot silently re-point it.
+        credential=rack_evidence.binding_credential_ok(db,reservation['id'])
+        if credential is None:return {'decision':'blocked','reason':'uncommitted_capacity'}
+        if not credential:return {'decision':'blocked','reason':'credential_mismatch'}
         pool=db.execute('SELECT rack_regions FROM pools WHERE id=?',(reservation['pool_id'],)).fetchone()
         coverage=json.loads(pool['rack_regions']).get(reservation['rack']) if pool else None
         if claim['region']!=x['node_region'] or coverage!=x['node_region'] or reservation['amount']<claim['size']:
@@ -54,5 +60,6 @@ def run(db,x):
             return {'decision':'blocked','reason':'writer_conflict'}
         if old and old['workload']==x['workload']:return {'decision':'reused','token':old['token']}
         db.execute('INSERT INTO bindings VALUES(?,?,?,?,?,?,?)',(x['id'],x['claim'],x['reservation'],x['workload'],x['node_region'],'bound',1))
+        rack_evidence.record_credential(db,'binding',x['id'],reservation['pool_id'],reservation['rack'])
         record(db,'claim',x['id'],'bind',1,x)
         return {'decision':'bound','token':1}
