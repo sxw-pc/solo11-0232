@@ -5,6 +5,7 @@ from .store import connect,report,replay
 from . import pool
 from . import claim
 from . import recovery
+from . import key_rotation
 
 def main():
     parser=argparse.ArgumentParser()
@@ -19,7 +20,7 @@ def main():
         result=report(db)
     elif args.command=='replay':
         db.close()
-        result=replay(args.db,{name:globals()[name] for name in ["pool","claim","recovery"]})
+        result=replay(args.db,{name:globals()[name] for name in ["pool","claim","recovery","key_rotation"]})
     elif args.command=='demo':
         result=[]
         for name in ["pool","claim","recovery"]:

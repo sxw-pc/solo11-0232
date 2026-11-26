@@ -56,6 +56,14 @@ def run(db,x):
             snapshot=db.execute('SELECT * FROM snapshots WHERE id=? AND claim_id=?',(x['snapshot'],x['claim'])).fetchone()
             if not candidate or candidate['state']!='healthy' or not snapshot or not valid_chain(db,snapshot,x['claim']) or candidate['generation']<snapshot['generation']:
                 return {'decision':'blocked','reason':'restore_evidence_incomplete'}
+            # opt-in cross-site key/readability acceptance: chain and generation
+            # checks stay the default; callers setting one of these flags also
+            # require a real per-snapshot decryption path.
+            if x.get('require_readback') or x.get('check_readability') or x.get('key_acceptance'):
+                from . import key_rotation
+                gate=key_rotation.gate_restore(db,x['claim'],x['snapshot'],x.get('at',x.get('minute')))
+                if not gate['allowed']:
+                    return {'decision':'blocked','reason':'snapshot_not_readable','read_gate':gate}
             db.execute('INSERT INTO restore_plans VALUES(?,?,?,?,?)',(x['id'],x['claim'],x['candidate'],x['snapshot'],'ready'))
             record(db,'recovery',x['id'],'plan_restore',snapshot['generation'],x)
             return {'decision':'restorable','snapshot':x['snapshot']}
